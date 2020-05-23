@@ -1,2 +1,2 @@
 # wizzR_tweets
-analysing tweets from Wizzair
+Analysing how Wizzair tweeted (treated, If I may) customers during the Covid-19 pandemic.
