@@ -4,6 +4,7 @@ library(readxl)
 library(tidytext)
 library(ggplot2)
 library(glmnet)
+library(scales)
 
 Sys.setenv(TZ='Europe/Budapest')
 df <- read_excel("tweets_formatted.xlsx")
@@ -23,12 +24,14 @@ df <- df %>%
 # Distribution by the day of year - wizzair
 number_of_tweets_per_day <- df %>% 
   select(created_at, is_customer) %>%
-  ggplot(aes(x = date(created_at), fill = is_customer)) + 
+  rename(Type = is_customer) %>% 
+  ggplot(aes(x = date(created_at), fill = Type)) + 
     geom_histogram(binwidth = 1, alpha = 0.9, colour = "white") +
     ggtitle("Daily number of tweets over time") + 
-    facet_wrap(~is_customer) + 
+    facet_wrap(~Type) + 
     ylab("Number of tweets") +
     xlab("Date") +
+    scale_x_date(labels = date_format("%Y-%m-%d")) +
     geom_vline(xintercept = ymd("2020-03-16"), color = "black", size= 0.7)
 
 ggsave("number_of_tweets_per_day.png", plot = number_of_tweets_per_day, dpi = 320, height = 7, width = 15)
@@ -62,6 +65,7 @@ daily_median_word <- df %>%
     xlab("Date") + 
     ylab("Number of words") +
     facet_wrap(~Type)
+
 ggsave("daily_median_word.png", plot = daily_median_word, dpi = 320, height = 7, width = 15)
 
 words <- df %>%
@@ -197,6 +201,7 @@ zipf_plot <- ggplot(powerlaw_data, aes(rank, term_frequency)) +
   scale_x_log10() +
   ylab("Term frequency") + 
   xlab("Rank") +
+  ggtitle("Zip's law") +
   scale_y_log10(labels = scales::comma) +
   geom_abline(intercept = 0.722461, slope = -1.701950, color = "gray50", linetype = 2)
 ggsave("zipf_plot.png", plot = zipf_plot, dpi = 320, height = 7, width = 15)
@@ -223,16 +228,17 @@ bing_plot <- df %>%
   select(sentiment, word, is_customer, created_at) %>%
   group_by(date(created_at), is_customer, sentiment) %>% 
   rename(tweet_date = `date(created_at)`) %>% 
+  filter(tweet_date > ymd("2020-03-11")) %>% 
   summarise(n = n()) %>% 
   rename(Type = is_customer) %>% 
-  ggplot(aes(x = date(tweet_date), y = n, fill = Type)) + 
-    geom_col(alpha = 0.9) +
-    ggtitle("Number of positive/negative words used by Wizz and their customers") + 
-    facet_wrap(~ paste(Type, sentiment)) + 
-    xlab("Date") + 
-    ylab("Count") +
-    geom_vline(xintercept = ymd("2020-03-16"), color = "blue", size= 0.7)
-
+  ggplot(aes(fill=sentiment, y=n, x=tweet_date)) + 
+    geom_bar(position="fill", stat="identity") +
+    geom_vline(xintercept = ymd("2020-03-16"), color = "black", size= 0.7) +
+    facet_wrap(~Type) + 
+    ggtitle("Proportion of positive/negative words used by Wizz and their customers over time") + 
+    scale_x_date(labels = date_format("%Y-%m-%d")) +
+    ylab("Proportion") + 
+    xlab("Date")
 ggsave("bing_plot.png", plot = bing_plot, dpi = 320, height = 7, width = 15)
 
 # NRC part
@@ -249,3 +255,22 @@ nrc_plot <- df %>%
     xlab("Sentiment")
 ggsave("nrc_plot.png", plot = nrc_plot, dpi = 320, height = 7, width = 15)
 
+
+nrc_overtime <- df %>% 
+  unnest_tokens(word, full_text) %>% 
+  inner_join(nrc) %>% 
+  select(sentiment, word, is_customer, created_at) %>%
+  group_by(date(created_at), is_customer, sentiment) %>% 
+  rename(tweet_date = `date(created_at)`) %>% 
+  filter(tweet_date > ymd("2020-03-11")) %>% 
+  summarise(n = n()) %>% 
+  rename(Type = is_customer) %>% 
+  ggplot(aes(fill=Type, y=n, x=tweet_date)) + 
+  geom_bar(position="fill", stat="identity") +
+  geom_vline(xintercept = ymd("2020-03-16"), color = "black", size= 0.7) +
+  facet_wrap(~sentiment, ncol = 2) + 
+  ggtitle("Proportion of NRC sentiments used by Wizz and their customers over time") + 
+  scale_x_date(labels = date_format("%Y-%m-%d")) +
+  ylab("Proportion") + 
+  xlab("Date")
+ggsave("nrc_overtime.png", plot = nrc_overtime, dpi = 320, height = 7, width = 15)
